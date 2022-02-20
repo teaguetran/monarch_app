@@ -1,0 +1,382 @@
+---
+title: "Tab2"
+author: "Teague Tran"
+date: "2/23/2021"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(raster)
+library(tidyverse)
+library(here)
+library(janitor)
+library(sf)
+library(rgdal)
+library(jpeg)
+library(shiny)
+library(ggpubr)
+
+
+
+butterflies <-  readxl::read_xlsx(here("data", "WMTC-Data-1997-2020_1.12.2021.xlsx"))
+
+milkweeds <- read.csv(here("data", "wmmm_20210122_204446_922952", "wmmm_20210122_204446_922952.csv")) %>% 
+  clean_names()
+#pull in state shape file and change projection to WGS84
+us_states <- read_sf(here("data", "state_boundaries", "tl_2020_us_state.shp"))
+us_states <- st_transform(us_states, 4326)
+
+```
+
+```{r}
+# select species, state, latitude, longitude, and datum then filter out monarch butterflies and genus-level identifications, datum must be WGS84
+
+milkweed_combined <- milkweeds %>% 
+  unite (genusspecies, genus, species_sub_species, sep = " ") %>% 
+  dplyr::select (genusspecies, latitude, longitude, datum) %>% 
+  filter (genusspecies != ("Asclepias spp."),
+          genusspecies != ("Asclepias"),
+          datum == "WGS84")
+
+
+
+# find top 8 most populous milkweed for tab 3 and 4
+milkweedtop8 <- milkweed_combined %>% 
+  group_by(genusspecies) %>% 
+  count() %>% 
+  filter( n > 100) 
+
+
+# select species top 8 species from milkweed_combined; make column name column for them
+milkweedtop8_gis <- milkweed_combined %>% 
+  filter(genusspecies == "Asclepias speciosa"| 
+           genusspecies == "Asclepias fascicularis"|
+           genusspecies == 'Asclepias asperula'|
+           genusspecies == 'Asclepias curassavica'|
+           genusspecies == 'Asclepias subverticillata'|
+           genusspecies == 'Asclepias eriocarpa'|
+           genusspecies == 'Asclepias cordifolia'|
+           genusspecies == 'Asclepias californica' |
+           genusspecies == "Danaus plexippus") %>% 
+  mutate(common_name = genusspecies)
+  
+milkweedtop8_gis$common_name[milkweedtop8_gis$common_name == "Asclepias speciosa"] <- "Showy milkweed"
+milkweedtop8_gis$common_name[milkweedtop8_gis$common_name == "Asclepias fascicularis"] <- "Narrow leaf milkweed"
+milkweedtop8_gis$common_name[milkweedtop8_gis$common_name == "Asclepias asperula"] <- "Spider milkweed"
+milkweedtop8_gis$common_name[milkweedtop8_gis$common_name == "Asclepias curassavica"] <- "Bloodflower"
+milkweedtop8_gis$common_name[milkweedtop8_gis$common_name == "Asclepias subverticillata"] <- "Horsetail milkweed"
+milkweedtop8_gis$common_name[milkweedtop8_gis$common_name == "Asclepias eriocarpa"] <- "Woolypod milkweed"
+milkweedtop8_gis$common_name[milkweedtop8_gis$common_name == "Asclepias cordifolia"] <- "Heartleaf milkweed"
+milkweedtop8_gis$common_name[milkweedtop8_gis$common_name == "Asclepias californica"] <- "California milkweed"
+milkweedtop8_gis$common_name[milkweedtop8_gis$common_name == "Danaus plexippus"] <- "Monarch butterfly"
+
+
+
+
+    else if (input$plant_radiobutton == "Narrow leaf milkweed"){img(src= "images/a_fasc.jpg", height="50%", width="50%")}
+    else if (input$plant_radiobutton == "Spider milkweed"){img(src= "images/a_asp.jpeg", height="50%", width="50%")}
+    else if (input$plant_radiobutton == "Bloodflower"){img(src= "images/a_cura.jpeg", height="50%", width="50%")}
+    else if (input$plant_radiobutton == "Horsetail milkweed"){img(src= "images/a_subv.jpg", height="50%", width="50%")}
+    else if (input$plant_radiobutton == "Woolypod milkweed"){img(src= "images/a_erio.jpg", height="50%", width="50%")}
+    else if (input$plant_radiobutton == "Heartleaf milkweed"){img(src= "images/a_cord.jpg", height="50%", width="50%")}
+    else if (input$plant_radiobutton == "California milkweed"){img(src= "images/a_cali.jpeg", height="50%", width="50%")}
+
+rename.values(milkweed_combined$common_name, "Asclepias speciosa" = "xd")
+
+# find top 8 most populous milkweed for tab 3 and 4
+milkweedtop8 <- milkweed_combined %>% 
+  group_by(genusspecies) %>% 
+  count() %>% 
+  filter( n > 100)
+
+# select species top 8 species from milkweed_combined 
+milkweedtop8_gis <- milkweed_combined %>% 
+  filter(genusspecies == "Asclepias speciosa"| 
+         genusspecies == "Asclepias fascicularis"|
+         genusspecies == 'Asclepias asperula'|
+         genusspecies == 'Asclepias curassavica'|
+         genusspecies == 'Asclepias subverticillata'|
+         genusspecies == 'Asclepias eriocarpa'|
+         genusspecies == 'Asclepias cordifolia'|
+         genusspecies == 'Asclepias californica'
+           )
+
+
+# convert data frame into sf
+milkweed_sf <- sf::st_as_sf(milkweedtop8_gis, 
+                            coords = c(x = "longitude", y = "latitude"),
+                            crs = 4326) %>% 
+   dplyr::select(common_name)
+
+
+#select data for states
+us_selected <- us_states %>% 
+  dplyr::select(REGION, NAME) %>% 
+  filter(REGION == 4,
+         NAME != "Alaska",
+         NAME != "Hawaii") 
+```
+
+
+```{r}
+ggplot() + 
+  geom_sf(data = us_selected, aes()) +
+  coord_sf(xlim = c(-126, -102), ylim = c(25,50), expand = FALSE)  +
+  geom_sf(data = milkweed_sf, aes(color = genusspecies)) + 
+  labs(color = "Species")
+
+
+```
+```{r}
+x <- "Showy milkweed"
+
+
+text_output <- case_when(
+  x == "Showy milkweed" ~ readJPEG(here("data", "pictures","a_subv.jpg")
+                                   ))
+text_output
+```
+
+```{r}
+#Tab 3
+
+radioButtons(
+  inputId = "plant_radiobutton",
+  label = "Select a Milkweed Species", 
+  choices = c("Showy milkweed", "Narrow leave milkweed", "Spider milkweed", "Bloodflower", "Horsetail Milkweed", "Woolypod milkweed", "Heartleaf milkweed", "California milkweed"),
+  selected = "Asclepias asperula", 
+  names = c(), 
+  inline = TRUE
+  
+)
+
+
+
+a_subv <- img(src = here("monarch_app", "data", "pictures", "data","a_subv.jpeg"), contentType = jpeg)
+
+a_subv <- image_read("")
+
+a_subv
+
+picture <- c("Showy milkweed", "Narrow leave milkweed", "Spider milkweed", "Bloodflower", "Horsetail Milkweed", "Woolypod milkweed", "Heartleaf milkweed", "California milkweed")
+
+image_output <- dplyr::case_when(
+  x == "Showy milkweed" ~ img(src = here("monarch_app", "data", "pictures", "data","a_subv.jpeg"), contentType = jpeg)
+)
+output
+
+names = c("Showy milkweed", "Narrow leave milkweed", "Spider milkweed", "Bloodflower", "Horsetail Milkweed", "Woolypod milkweed", "Heartleaf milkweed", "California milkweed")
+
+plant_radiobutton <- "Showymilkweed"
+
+image_reactive <- reactive(
+  case_when(
+  plant_radiobutton == "Showy milkweed" ~ readJPEG("a_subv.jpg")))
+
+image_reactive
+  
+image <- readJPEG(here("data", "pictures","a_subv.jpg"))
+
+image
+test <- c(1,2,3,4)
+test2 <- c(6,4,3,2)
+testing <- data.frame(test, test2)
+
+help_me <- ggplot() +
+  background_image(image) +
+  geom_point(data = testing, aes(x = test, y = test2)) +
+  theme_void()
+  
+help_me
+
+myImage <- case_when(
+  x == "Asclepias asperula" ~ readJPEG(here("monarch_app", "data", "pictures", "data","a_asp.jpeg")), plot(0:1,0:1,type="n",ann=FALSE,axes=FALSE)
+rasterImage(jj,0,0,1,1))
+
+x <- readJPEG(here("monarch_app", "data", "pictures", "data","a_asp.jpeg"))
+```
+
+
+
+
+```{r, removed from app.R}
+# data frame for widget 1
+butterflies_location <- butterflies %>%
+  pivot_longer(cols = starts_with('x'), names_to = "year") %>%
+  group_by(site_name) %>%
+  summarize(sum(value)) %>%
+  drop_na()
+
+# data frame for widget 2 (Teague's version)
+names(butterflies) <- gsub("x", "", names(butterflies))
+
+butterflies_tidy <- butterflies %>% 
+  pivot_longer(cols = c("1997", "1998", "1999", "2000", "2001", "2002", "2003", "2004", '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018','2019', '2020'),
+               names_to = "year_char",
+               values_to = "count") 
+
+
+butterflies_count_year <- butterflies_tidy %>% 
+  group_by(year_char) %>% 
+  summarise(sum = round(sum(count, na.rm = TRUE), 0 ))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+# select species, state, latitude, longitude, and datum then filter out monarch butterflies and genus-level identifications, datum must be WGS84
+milkweed_combined <- milkweeds %>% 
+  unite (genusspecies, genus, species_sub_species, sep = " ") %>% 
+  dplyr::select (genusspecies, latitude, longitude, datum) %>% 
+  filter (genusspecies != ("Danaus plexippus"), 
+         genusspecies != ("Asclepias spp."),
+         genusspecies != ("Asclepias"),
+         datum == "WGS84") 
+ 
+
+# convert data frame into sf
+milkweed_sf <- sf::st_as_sf(milkweed_combined, 
+                            coords = c(x = "longitude", y = "latitude"),
+                            crs = 3857) %>% 
+   dplyr::select(genusspecies)
+
+
+#get counts of sightings for each species
+milkweed_counts <- milkweed_states %>%
+  dyplr::select()
+  group_by(genusspecies) %>% 
+  count() %>%  
+  pivot_longer(milkweed_counts, cols = c())
+
+#select only states that intersect with milkweed data points
+milkweed_states <- milkweed_sf %>% 
+  st_intersection(us_states)
+
+plot(milkweed_states)
+```
+
+```{r}
+ggplot() + 
+  geom_sf(data = milkweed_states)
+
+#create graph
+
+ggplot() + 
+  geom_sf(data = us_states) +
+  geom_sf(data = milkweed_sf, aes(fill = genusspecies), color = "black", size = 0.1) + 
+  coord_sf(xlim = c(-126, -102), ylim = c(25,50), expand = TRUE)+
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+```{r}
+#data wrangling 
+butterflies_tidy <-  butterflies %>% 
+  pivot_longer(cols = c("1997", "1998", "1999", "2000", "2001", "2002", "2003", "2004", '2005', '2006', '2007', '2008', '2009', '2010', '2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018','2019', '2020'),
+               names_to = "year",
+               values_to = "count"
+               )
+
+butterflies_count_year <- butterflies_tidy %>% 
+  group_by(year) %>% 
+  summarise(sum = round(sum(count, na.rm = TRUE), 0 ))
+
+ggplot(data = butterflies_count_year, aes(x = year, y = sum)) +
+  geom_col() +
+  coord_flip()
+```
+
+
+
+```{r}
+ case_when(
+  input$plant_radiobutton == "Showy milkweed" ~ readJPEG(here("data", "pictures","a_spec.jpg"), native = FALSE), 
+  input$plant_radiobutton == "Narrow leave milkweed" ~ readJPEG(here("data", "pictures","a_afasc.jpg"), native = FALSE),
+  input$plant_radiobutton == "Spider milkweed" ~ readJPEG(here("data", "pictures","a_asp.jpg"), native = FALSE),
+  input$plant_radiobutton == "Bloodflower" ~ readJPEG(here("data", "pictures","a_cura.jpg"), native = FALSE),
+  input$plant_radiobutton == "Horsetail Milkweed" ~ readJPEG(here("data", "pictures","subv.jpg"), native = FALSE),
+  input$plant_radiobutton == "Woolypod milkweed" ~ readJPEG(here("data", "pictures","a_erio.jpg"), native = FALSE),
+  input$plant_radiobutton == "Heartleaf milkweed" ~ readJPEG(here("data", "pictures","a_cord.jpg"), native = FALSE),
+  input$plant_radiobutton == "California milkweed" ~ readJPEG(here("data", "pictures","a_cali.jpg"), native = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r, echo = FALSE}
+inputPanel( 
+  
+  sliderInput(slideId = "pick_time",
+              label = "Pick a specific time range"
+              choices = )
+  
+  
+  
+  
+  
+  )
+```
+
+
+
+```{r}
+{
+  SlideMax = 2020
+  SlideMin = 1997
+  output$SliderWidget <- renderUI({
+    sliderInput("Slider1","", min = SlideMin, max = SlideMax, value = 1)
+  })
+  output$butterfly <- renderplot(
+    ggplot(data = butterflies_count_year, aes(x = input$years_range, y = sum)) +
+      geom_col() +
+      coord_flip())
+})
+
+butterflies_count_year <- butterflies_tidy %>% 
+  group_by(year) %>% 
+  summarise(sum = round(sum(count, na.rm = TRUE), 0 ))
+```
+
+
